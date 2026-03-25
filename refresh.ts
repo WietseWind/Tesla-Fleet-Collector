@@ -49,7 +49,7 @@ console.log(`Found ${accounts.length} account(s). Refreshing...\n`);
 async function refreshVehicle(v: any, token: string, account: Account) {
   const vehicleId = String(v.id);
   const name = v.display_name ?? v.vin ?? vehicleId;
-  console.log(`  Vehicle: ${name} (${vehicleId}), state=${v.state}`);
+  console.log(`  Vehicle: ${name} (${vehicleId}), state=${v.state} — processing...`);
 
   const SKIN_COLOR_TTL = 24 * 60 * 60; // 24 hours
 
@@ -73,7 +73,8 @@ async function refreshVehicle(v: any, token: string, account: Account) {
 
   if (v.state !== "online") {
     if (!stale) {
-      console.log(`  ${name}: ${v.state}, data fresh (<10 min) — using cache.`);
+      const age = now - (cached?.last_seen ?? 0);
+      console.log(`  ~ ${name}: skipped — data is ${age}s old (< ${STALE_SECS}s), using cache.`);
       return;
     }
     console.log(`  ${name}: ${v.state} and stale — sending wake_up...`);
@@ -147,7 +148,7 @@ async function refreshVehicle(v: any, token: string, account: Account) {
   });
 
   console.log(
-    `  ✓ ${name}: ${model ?? "?"} ${carType ?? ""}, ${color ?? "?"}, ` +
+    `  ✓ ${name}: refreshed — ${model ?? "?"} ${carType ?? ""}, ${colorOg ?? "?"}, ` +
     `lat=${latitude?.toFixed(5)}, lon=${longitude?.toFixed(5)}, ` +
     `speed=${speed ?? 0} km/h, charge=${chargeLevel}% (${chargingState})`
   );
