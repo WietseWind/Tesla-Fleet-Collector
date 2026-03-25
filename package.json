@@ -1,0 +1,21 @@
+{
+  "name": "teslaapi",
+  "module": "server.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "bun server.ts",
+    "dev": "bun --hot server.ts",
+    "auth": "bun auth.ts",
+    "deauth": "bun deauth.ts",
+    "account": "bun account.ts",
+    "vehicle": "bun vehicle.ts",
+    "refresh": "bun refresh.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}

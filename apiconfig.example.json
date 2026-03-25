@@ -1,0 +1,9 @@
+{
+  "client_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "client_secret": "ta-secret.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "here": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "home": {
+    "latitude": 0.0000,
+    "longitude": 0.0000
+  }
+}
