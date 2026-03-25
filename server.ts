@@ -93,134 +93,125 @@ function notFound(msg = "Not found") {
 
 Bun.serve({
   port: PORT,
-  routes: {
-    // ── Auth ──────────────────────────────────────────────────────────────────
-    "/auth": {
-      GET: (req) => {
-        prunePending();
-        const region = new URL(req.url).searchParams.get("region") ?? "eu";
-        if (!["na", "eu"].includes(region)) {
-          return json({ error: "region must be 'na' or 'eu'" }, 400);
-        }
-        const pkce = generatePkce();
-        pendingAuth.set(pkce.state, {
-          codeVerifier: pkce.codeVerifier,
-          region,
-          expiresAt: Date.now() + 10 * 60 * 1000,
-        });
-        return Response.redirect(buildAuthUrl(CLIENT_ID, REDIRECT_URI, region, pkce), 302);
-      },
-    },
 
-    "/callback": {
-      GET: async (req) => {
-        const url   = new URL(req.url);
-        const error = url.searchParams.get("error");
-        const state = url.searchParams.get("state");
-        const code  = url.searchParams.get("code");
+  async fetch(req, server) {
+    const start = Date.now();
+    const url   = new URL(req.url);
+    const path  = url.pathname;
 
-        if (error) {
-          return html(`<h1>Authorization failed</h1><p>${error}</p>`, 400);
-        }
+    const res = await route(req, url);
 
-        const session = state ? pendingAuth.get(state) : null;
-        if (!session) {
-          return html("<h1>Invalid or expired session</h1><p>Please try <a href='/auth'>/auth</a> again.</p>", 400);
-        }
-        pendingAuth.delete(state!);
-
-        if (!code) {
-          return html("<h1>No authorization code received</h1>", 400);
-        }
-
-        let tokens: any;
-        try {
-          tokens = await exchangeCode(code, session.codeVerifier, REDIRECT_URI, CLIENT_ID, CLIENT_SECRET);
-        } catch (err) {
-          return html(`<h1>Token exchange failed</h1><p>${(err as Error).message}</p>`, 500);
-        }
-
-        const { accountId, identity } = await saveAccount(db, tokens, session.region);
-
-        return html(
-          `<html><body style="font-family:sans-serif;padding:2rem;max-width:480px;margin:auto">
-            <h1>✓ Account authorized</h1>
-            <p><strong>Identity:</strong> ${identity}</p>
-            <p><strong>Region:</strong> ${session.region}</p>
-            <p><strong>Account ID:</strong> ${accountId}</p>
-            <p>You can close this tab. Run <code>bun refresh.ts</code> to fetch vehicle data.</p>
-          </body></html>`
-        );
-      },
-    },
-
-    // ── Data ──────────────────────────────────────────────────────────────────
-    "/health": {
-      GET: () => json({ ok: true, ts: new Date().toISOString() }),
-    },
-
-    "/accounts": {
-      GET: () => {
-        const accounts = db
-          .query("SELECT id, email, subject, label, region, created_at FROM accounts ORDER BY id")
-          .all() as Pick<Account, "id" | "email" | "subject" | "label" | "region" | "created_at">[];
-        return json(accounts.map((a) => {
-          const vehicles = db
-            .query("SELECT vehicle_id, last_updated FROM vehicles WHERE account_id = ?")
-            .all(a.id) as { vehicle_id: string; last_updated: number | null }[];
-          const lastContact = vehicles.reduce((max, v) => Math.max(max, v.last_updated ?? 0), 0);
-          return {
-            id: a.id,
-            label: a.label ?? null,
-            identity: a.email ?? a.subject ?? null,
-            region: a.region,
-            car_count: vehicles.length,
-            car_ids: vehicles.map((v) => v.vehicle_id),
-            last_contact: lastContact > 0 ? new Date(lastContact * 1000).toISOString() : null,
-            created_at: new Date(a.created_at * 1000).toISOString(),
-          };
-        }));
-      },
-    },
-
-    "/vehicles": {
-      GET: async (req) => {
-        const params   = new URL(req.url).searchParams;
-        const proximity = params.has("proximity") ? Number(params.get("proximity")) : null;
-        const charging  = params.has("charging")  ? params.get("charging") === "true" : false;
-
-        const vehicles = db.query("SELECT * FROM vehicles ORDER BY display_name").all() as Vehicle[];
-        let results = await Promise.all(vehicles.map(vehicleToJson));
-
-        if (proximity !== null) {
-          results = results.filter(
-            (v) => v.location !== null && v.location.distance_m !== null && v.location.distance_m <= proximity
-          );
-        }
-
-        if (charging) {
-          results = results.filter((v) => v.charge.state === "Charging");
-        }
-
-        return json({ filters: { proximity, charging }, results });
-      },
-    },
-
-    "/vehicles/:id": {
-      GET: async (req) => {
-        const v = db
-          .query("SELECT * FROM vehicles WHERE vehicle_id = ?")
-          .get(req.params.id) as Vehicle | null;
-        if (!v) return notFound(`Vehicle '${req.params.id}' not found`);
-        return json(await vehicleToJson(v));
-      },
-    },
-  },
-
-  fetch(req) {
-    return notFound("Unknown route");
+    const ip  = req.headers.get("CF-Connecting-IP") ?? server.requestIP(req)?.address ?? "-";
+    console.log(`${req.method} ${path}${url.search || ""} ${res.status} ${Date.now() - start}ms ${ip}`);
+    return res;
   },
 });
+
+async function route(req: Request, url: URL): Promise<Response> {
+  const path = url.pathname;
+
+  if (path === "/auth" && req.method === "GET") {
+    prunePending();
+    const region = url.searchParams.get("region") ?? "eu";
+    if (!["na", "eu"].includes(region)) {
+      return json({ error: "region must be 'na' or 'eu'" }, 400);
+    }
+    const pkce = generatePkce();
+    pendingAuth.set(pkce.state, {
+      codeVerifier: pkce.codeVerifier,
+      region,
+      expiresAt: Date.now() + 10 * 60 * 1000,
+    });
+    return Response.redirect(buildAuthUrl(CLIENT_ID, REDIRECT_URI, region, pkce), 302);
+  }
+
+  if (path === "/callback" && req.method === "GET") {
+    const error = url.searchParams.get("error");
+    const state = url.searchParams.get("state");
+    const code  = url.searchParams.get("code");
+
+    if (error) return html(`<h1>Authorization failed</h1><p>${error}</p>`, 400);
+
+    const session = state ? pendingAuth.get(state) : null;
+    if (!session) return html("<h1>Invalid or expired session</h1><p>Please try <a href='/auth'>/auth</a> again.</p>", 400);
+    pendingAuth.delete(state!);
+
+    if (!code) return html("<h1>No authorization code received</h1>", 400);
+
+    let tokens: any;
+    try {
+      tokens = await exchangeCode(code, session.codeVerifier, REDIRECT_URI, CLIENT_ID, CLIENT_SECRET);
+    } catch (err) {
+      return html(`<h1>Token exchange failed</h1><p>${(err as Error).message}</p>`, 500);
+    }
+
+    const { accountId, identity } = await saveAccount(db, tokens, session.region);
+    return html(
+      `<html><body style="font-family:sans-serif;padding:2rem;max-width:480px;margin:auto">
+        <h1>✓ Account authorized</h1>
+        <p><strong>Identity:</strong> ${identity}</p>
+        <p><strong>Region:</strong> ${session.region}</p>
+        <p><strong>Account ID:</strong> ${accountId}</p>
+        <p>You can close this tab. Run <code>bun refresh.ts</code> to fetch vehicle data.</p>
+      </body></html>`
+    );
+  }
+
+  if (path === "/health" && req.method === "GET") {
+    return json({ ok: true, ts: new Date().toISOString() });
+  }
+
+  if (path === "/accounts" && req.method === "GET") {
+    const accounts = db
+      .query("SELECT id, email, subject, label, region, created_at FROM accounts ORDER BY id")
+      .all() as Pick<Account, "id" | "email" | "subject" | "label" | "region" | "created_at">[];
+    return json(accounts.map((a) => {
+      const vehicles = db
+        .query("SELECT vehicle_id, last_updated FROM vehicles WHERE account_id = ?")
+        .all(a.id) as { vehicle_id: string; last_updated: number | null }[];
+      const lastContact = vehicles.reduce((max, v) => Math.max(max, v.last_updated ?? 0), 0);
+      return {
+        id: a.id,
+        label: a.label ?? null,
+        identity: a.email ?? a.subject ?? null,
+        region: a.region,
+        car_count: vehicles.length,
+        car_ids: vehicles.map((v) => v.vehicle_id),
+        last_contact: lastContact > 0 ? new Date(lastContact * 1000).toISOString() : null,
+        created_at: new Date(a.created_at * 1000).toISOString(),
+      };
+    }));
+  }
+
+  if (path === "/vehicles" && req.method === "GET") {
+    const proximity = url.searchParams.has("proximity") ? Number(url.searchParams.get("proximity")) : null;
+    const charging  = url.searchParams.has("charging")  ? url.searchParams.get("charging") === "true" : false;
+
+    const vehicles = db.query("SELECT * FROM vehicles ORDER BY display_name").all() as Vehicle[];
+    let results = await Promise.all(vehicles.map(vehicleToJson));
+
+    if (proximity !== null) {
+      results = results.filter(
+        (v) => v.location !== null && v.location.distance_m !== null && v.location.distance_m <= proximity
+      );
+    }
+    if (charging) {
+      results = results.filter((v) => v.charge.state === "Charging");
+    }
+    return json({ filters: { proximity, charging }, results });
+  }
+
+  const vehicleMatch = path.match(/^\/vehicles\/([^/]+)$/);
+  if (vehicleMatch && req.method === "GET") {
+    const v = db
+      .query("SELECT * FROM vehicles WHERE vehicle_id = ?")
+      .get(vehicleMatch[1]) as Vehicle | null;
+    if (!v) return notFound(`Vehicle '${vehicleMatch[1]}' not found`);
+    return json(await vehicleToJson(v));
+  }
+
+  return notFound("Unknown route");
+}
 
 console.log(`Tesla API server running on http://localhost:${PORT}`);
 console.log(`  GET /auth          – start OAuth flow (add ?region=na for North America)`);
