@@ -110,6 +110,37 @@ export function formatCarType(carType: string | null): string | null {
   return CAR_TYPE_LABELS[carType.toLowerCase()] ?? carType;
 }
 
+// Tesla exterior_color name → closest hex value
+const TESLA_COLOR_HEX: Record<string, string> = {
+  // Universal
+  solidblack:          "#000000",
+  obsidianblack:       "#0a0a0a",
+  midnightsilver:      "#293133",
+  steelgrey:           "#4a515a",
+  deepblue:            "#1b3a5e",
+  deepbluemetallic:    "#1b3a5e",
+  pearlwhite:          "#f2f2f2",
+  pearlwhitemulticoat: "#f2f2f2",
+  redmulticoat:        "#b22222",
+  red:                 "#b22222",
+  ultrared:            "#c0392b",
+  warmwhite:           "#f5f0e8",
+  // Model S / X specific
+  silver:              "#c0c0c0",
+  titaniummetallic:    "#858585",
+  midnightblue:        "#1c2d4f",
+  // Model 3 / Y specific
+  midnightcherry:      "#4a0010",
+  quicksilver:         "#bfc1c2",
+  moonstone:           "#c9cdd0",
+  mercurysilvermulticoat: "#9fa3a8",
+};
+
+export function exteriorColorToHex(name: string | null): string | null {
+  if (!name) return null;
+  return TESLA_COLOR_HEX[name.toLowerCase().replace(/\s+/g, "")] ?? null;
+}
+
 export async function wakeUp(token: string, vehicleId: string, region = "eu") {
   const data = await apiFetch(
     `${fleetBase(region)}/api/1/vehicles/${vehicleId}/wake_up`,

@@ -21,7 +21,8 @@ export interface Vehicle {
   alias: string | null;
   model: string | null;
   car_type: string | null;
-  color: string | null;
+  color_og: string | null;
+  color_og_name: string | null;
   skin_color: string | null;
   skin_color_cached_at: number | null;
   latitude: number | null;
@@ -52,6 +53,11 @@ function initSchema(db: Database) {
   try { db.exec("ALTER TABLE vehicles ADD COLUMN model TEXT"); } catch {}
   try { db.exec("ALTER TABLE vehicles ADD COLUMN car_type TEXT"); } catch {}
   try { db.exec("ALTER TABLE vehicles ADD COLUMN color TEXT"); } catch {}
+  try { db.exec("ALTER TABLE vehicles ADD COLUMN color_og TEXT"); } catch {}
+  try { db.exec("ALTER TABLE vehicles ADD COLUMN color_og_name TEXT"); } catch {}
+  // Migrate data: color(hex) → color_og, color_og(raw name) → color_og_name
+  try { db.exec("UPDATE vehicles SET color_og_name = color_og WHERE color_og_name IS NULL AND color_og IS NOT NULL"); } catch {}
+  try { db.exec("UPDATE vehicles SET color_og = color WHERE color_og IS NULL OR color_og NOT LIKE '#%'"); } catch {}
   try { db.exec("ALTER TABLE vehicles ADD COLUMN skin_color TEXT"); } catch {}
   try { db.exec("ALTER TABLE vehicles ADD COLUMN skin_color_cached_at INTEGER"); } catch {}
 
@@ -85,7 +91,8 @@ function initSchema(db: Database) {
       alias          TEXT,
       model          TEXT,
       car_type       TEXT,
-      color          TEXT,
+      color_og       TEXT,
+      color_og_name  TEXT,
       skin_color             TEXT,
       skin_color_cached_at   INTEGER,
       latitude       REAL,

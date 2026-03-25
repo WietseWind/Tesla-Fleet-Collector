@@ -17,6 +17,7 @@ import {
   wakeUp,
   waitForOnline,
   formatCarType,
+  exteriorColorToHex,
 } from "./src/tesla-api";
 
 // Converts Tesla's "R,G,B,opacity,metallic" paint_color_override to a CSS hex colour.
@@ -54,7 +55,7 @@ async function refreshVehicle(v: any, token: string, account: Account) {
 
   const cached = db
     .query("SELECT last_seen, model, car_type, color, skin_color, skin_color_cached_at FROM vehicles WHERE vehicle_id = ?")
-    .get(vehicleId) as Pick<Vehicle, "last_seen" | "model" | "car_type" | "color" | "skin_color" | "skin_color_cached_at"> | null;
+    .get(vehicleId) as Pick<Vehicle, "last_seen" | "model" | "car_type" | "color_og" | "color_og_name" | "skin_color" | "skin_color_cached_at"> | null;
 
   const now = Math.floor(Date.now() / 1000);
   const stale = FORCE || now - (cached?.last_seen ?? 0) > STALE_SECS;
@@ -117,11 +118,13 @@ async function refreshVehicle(v: any, token: string, account: Account) {
   const chargingState = charge.charging_state ?? null;
   const model        = formatCarType(config.car_type ?? null) ?? cached?.model ?? null;
   const carType      = config.trim_badging ?? cached?.car_type ?? null;
-  const color        = config.exterior_color ?? cached?.color ?? null;
+  const colorRaw     = config.exterior_color ?? null;
+  const colorOg      = exteriorColorToHex(colorRaw) ?? colorRaw ?? cached?.color_og ?? null;
+  const colorOgName  = colorRaw ?? cached?.color_og_name ?? null;
   // paint_color_override is "R,G,B,opacity,metallic" (0-255) — user-set in the Tesla app for wraps.
-  // Re-fetched every 24h. Falls back to exterior_color if no override is set.
+  // Only set when paint_color_override is present — null means no wrap/custom colour configured.
   const skinColor    = fetchConfig
-    ? (paintOverrideToHex(config.paint_color_override) ?? config.exterior_color ?? null)
+    ? (paintOverrideToHex(config.paint_color_override) ?? null)
     : (cached?.skin_color ?? null);
   const skinColorCachedAt = fetchConfig ? now : (cached?.skin_color_cached_at ?? null);
 
@@ -130,7 +133,8 @@ async function refreshVehicle(v: any, token: string, account: Account) {
     display_name: v.display_name ?? null,
     model,
     car_type: carType,
-    color,
+    color_og: colorOg,
+    color_og_name: colorOgName,
     skin_color: skinColor,
     skin_color_cached_at: skinColorCachedAt,
     state: "online",

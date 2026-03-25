@@ -62,8 +62,9 @@ async function vehicleToJson(v: Vehicle) {
     display_name: v.display_name,
     model: v.model,
     type: v.car_type,
-    color: v.color,
-    skin_color: v.skin_color,
+    color_og: v.color_og,
+    color_og_name: v.color_og_name,
+    skin_color: v.skin_color ?? v.color_og,
     state: v.state,
     location,
     speed_kmh: v.speed,
@@ -163,13 +164,22 @@ Bun.serve({
         const accounts = db
           .query("SELECT id, email, subject, label, region, created_at FROM accounts ORDER BY id")
           .all() as Pick<Account, "id" | "email" | "subject" | "label" | "region" | "created_at">[];
-        return json(accounts.map((a) => ({
-          id: a.id,
-          label: a.label ?? null,
-          identity: a.email ?? a.subject ?? null,
-          region: a.region,
-          created_at: new Date(a.created_at * 1000).toISOString(),
-        })));
+        return json(accounts.map((a) => {
+          const vehicles = db
+            .query("SELECT vehicle_id, last_updated FROM vehicles WHERE account_id = ?")
+            .all(a.id) as { vehicle_id: string; last_updated: number | null }[];
+          const lastContact = vehicles.reduce((max, v) => Math.max(max, v.last_updated ?? 0), 0);
+          return {
+            id: a.id,
+            label: a.label ?? null,
+            identity: a.email ?? a.subject ?? null,
+            region: a.region,
+            car_count: vehicles.length,
+            car_ids: vehicles.map((v) => v.vehicle_id),
+            last_contact: lastContact > 0 ? new Date(lastContact * 1000).toISOString() : null,
+            created_at: new Date(a.created_at * 1000).toISOString(),
+          };
+        }));
       },
     },
 
