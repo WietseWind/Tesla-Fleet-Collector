@@ -47,6 +47,8 @@ That's it. Hit `http://localhost:4545/vehicles` to see your cars.
 
 ---
 
+> **New here?** See [README.SETUP.md](README.SETUP.md) for a detailed step-by-step setup guide.
+
 ## Setup
 
 1. Register an application at [developer.tesla.com](https://developer.tesla.com) to get a `client_id` and `client_secret`.
