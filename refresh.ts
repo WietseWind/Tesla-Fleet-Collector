@@ -54,12 +54,12 @@ async function refreshVehicle(v: any, token: string, account: Account) {
   const SKIN_COLOR_TTL = 24 * 60 * 60; // 24 hours
 
   const cached = db
-    .query("SELECT last_seen, model, car_type, color, skin_color, skin_color_cached_at FROM vehicles WHERE vehicle_id = ?")
+    .query("SELECT last_seen, model, car_type, color_og, color_og_name, skin_color, skin_color_cached_at FROM vehicles WHERE vehicle_id = ?")
     .get(vehicleId) as Pick<Vehicle, "last_seen" | "model" | "car_type" | "color_og" | "color_og_name" | "skin_color" | "skin_color_cached_at"> | null;
 
   const now = Math.floor(Date.now() / 1000);
   const stale = FORCE || now - (cached?.last_seen ?? 0) > STALE_SECS;
-  const needsConfig = !cached?.model || !cached?.car_type || !cached?.color;
+  const needsConfig = !cached?.model || !cached?.car_type || !cached?.color_og;
   const needsSkinColor = FORCE || !cached?.skin_color_cached_at || now - cached.skin_color_cached_at > SKIN_COLOR_TTL;
   // Fetch vehicle_config if needed for static config OR for 24h skin colour refresh
   const fetchConfig = needsConfig || needsSkinColor;
