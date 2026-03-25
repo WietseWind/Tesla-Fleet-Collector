@@ -184,9 +184,25 @@ Bun.serve({
     },
 
     "/vehicles": {
-      GET: async () => {
+      GET: async (req) => {
+        const params   = new URL(req.url).searchParams;
+        const proximity = params.has("proximity") ? Number(params.get("proximity")) : null;
+        const charging  = params.has("charging")  ? params.get("charging") === "true" : false;
+
         const vehicles = db.query("SELECT * FROM vehicles ORDER BY display_name").all() as Vehicle[];
-        return json(await Promise.all(vehicles.map(vehicleToJson)));
+        let results = await Promise.all(vehicles.map(vehicleToJson));
+
+        if (proximity !== null) {
+          results = results.filter(
+            (v) => v.location !== null && v.location.distance_m !== null && v.location.distance_m <= proximity
+          );
+        }
+
+        if (charging) {
+          results = results.filter((v) => v.charge.state === "Charging");
+        }
+
+        return json({ filters: { proximity, charging }, results });
       },
     },
 

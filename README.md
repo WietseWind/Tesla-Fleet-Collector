@@ -40,7 +40,7 @@ That's it. Hit `http://localhost:4545/vehicles` to see your cars.
 | Route | What it returns |
 |-------|----------------|
 | `GET /auth` | Redirect to Tesla OAuth (`?region=na` for North America) |
-| `GET /vehicles` | All cached vehicles |
+| `GET /vehicles` | All cached vehicles (`?proximity=<m>`, `?charging=true`) |
 | `GET /vehicles/:id` | Single vehicle by Tesla ID |
 | `GET /accounts` | Authorized accounts (no tokens) |
 | `GET /health` | `{ ok: true }` |
@@ -151,7 +151,7 @@ PORT=8080 bun start
 |-------|-------------|
 | `GET /auth` | Start OAuth flow — redirects to Tesla (`?region=na` for North America) |
 | `GET /callback` | OAuth callback — handled automatically by Tesla redirect |
-| `GET /vehicles` | All cached vehicles |
+| `GET /vehicles` | All cached vehicles. Query params: `?proximity=<meters>` (filter by `location.distance_m ≤ n`), `?charging=true` (only vehicles with `charge.state = "Charging"`) |
 | `GET /vehicles/:id` | Single vehicle by Tesla vehicle ID |
 | `GET /accounts` | Authorized accounts (no tokens exposed) |
 | `GET /health` | Health check |
@@ -159,29 +159,47 @@ PORT=8080 bun start
 ### Example response – `GET /vehicles`
 
 ```json
-[
-  {
-    "id": "1234567890123456",
-    "vin": "5YJ3E1EA1NF000001",
-    "name": "Daily Driver",
-    "display_name": "Ilse",
-    "model": "Model 3",
-    "type": "74d",
-    "color": "MidnightSilver",
-    "skin_color": "#580908",
-    "state": "online",
-    "location": {
-      "latitude": 51.5074,
-      "longitude": -0.1278,
-      "address": "Damrak, Amsterdam, Noord-Holland, Netherlands",
-      "distance_m": 1240
-    },
-    "speed_kmh": 0,
-    "charge": { "level_pct": 69, "state": "Disconnected" },
-    "last_seen": "2026-03-25T09:14:35.000Z",
-    "last_updated": "2026-03-25T09:14:45.000Z"
-  }
-]
+{
+  "filters": {
+    "proximity": null,
+    "charging": false
+  },
+  "results": [
+    {
+      "id": "1234567890123456",
+      "vin": "5YJ3E1EA1NF000001",
+      "name": "Daily Driver",
+      "display_name": "Ilse",
+      "model": "Model 3",
+      "type": "74d",
+      "color": "MidnightSilver",
+      "skin_color": "#580908",
+      "state": "online",
+      "location": {
+        "latitude": 51.5074,
+        "longitude": -0.1278,
+        "address": "Damrak, Amsterdam, Noord-Holland, Netherlands",
+        "distance_m": 1240
+      },
+      "speed_kmh": 0,
+      "charge": { "level_pct": 69, "state": "Disconnected" },
+      "last_seen": "2026-03-25T09:14:35.000Z",
+      "last_updated": "2026-03-25T09:14:45.000Z"
+    }
+  ]
+}
+```
+
+With filters active – `GET /vehicles?proximity=500&charging=true`:
+
+```json
+{
+  "filters": {
+    "proximity": 500,
+    "charging": true
+  },
+  "results": []
+}
 ```
 
 ### Example response – `GET /accounts`
