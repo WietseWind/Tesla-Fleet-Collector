@@ -93,6 +93,7 @@ function notFound(msg = "Not found") {
 
 Bun.serve({
   port: PORT,
+  hostname: "0.0.0.0",
 
   async fetch(req, server) {
     const start = Date.now();
