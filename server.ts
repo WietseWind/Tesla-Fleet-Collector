@@ -74,15 +74,21 @@ async function vehicleToJson(v: Vehicle) {
   };
 }
 
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+};
+
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data, null, 2), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...CORS_HEADERS },
   });
 }
 
 function html(body: string, status = 200) {
-  return new Response(body, { status, headers: { "Content-Type": "text/html" } });
+  return new Response(body, { status, headers: { "Content-Type": "text/html", ...CORS_HEADERS } });
 }
 
 function notFound(msg = "Not found") {
@@ -110,6 +116,10 @@ Bun.serve({
 
 async function route(req: Request, url: URL): Promise<Response> {
   const path = url.pathname;
+
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }
 
   if (path === "/auth" && req.method === "GET") {
     prunePending();
